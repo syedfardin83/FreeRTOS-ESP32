@@ -13,31 +13,40 @@ void task1(void *param){
   char ch;
   char buff[buff_size];
   int index = 0;
+  int i;
+  Serial.println("Task1 started");
 
   while(1){
     if(Serial.available()){
       ch = Serial.read();
       if(ch=='\n'){
         ptr = (char*)pvPortMalloc(sizeof(char)*(index+1));
-        for(int i=0;i<=index;i++){
+        for(i=0;i<=index;i++){
           ptr[i] = buff[i];
         }
         length = index+1;
         flag = true;
         index = 0;
+        Serial.print("Echo: ");
+        for(i=0;i<length;i++){
+          Serial.print(ptr[i]);
+        }
+        Serial.println("");
         continue;
       }
       buff[index] = ch;
       index++; 
     }
+    vTaskDelay(5/portTICK_PERIOD_MS);
   }
 }
 
 void task2(void *param){
   int i;
+  Serial.println("Task 2 started");
   while(1){
     if(flag){
-      Serial.println("Flagged");
+      // Serial.println("Flagged");
       for(i=0;i<length;i++){
         Serial.print(ptr[i]);
       }
@@ -45,6 +54,7 @@ void task2(void *param){
       vPortFree(ptr);
       flag = false;
     }
+    vTaskDelay(5/portTICK_PERIOD_MS);
   }
 }
 
@@ -66,10 +76,11 @@ void setup() {
     "task2",
     1024,
     NULL,
-    1,
+    2,
     NULL,
     app_cpu
   );
+  vTaskDelete(NULL);
 }
 
 void loop() {
