@@ -16,6 +16,8 @@ static const int buff_size = NULL;
 String inputString = "";
 bool stringEnd = false;
 
+
+
 String* splitBySpace(String str){
   static String words[10];int i=0;String word = "";int wordIndex = 0;
   while(i<str.length()){
@@ -38,7 +40,7 @@ String* splitBySpace(String str){
 void taskA(void *param){
   char msg[10];char ch;String *commands;int msg;
   while(1){
-    if(xQueueReceive(queue1,msg,0)==pdTRUE){
+    if(xQueueReceive(queue2,msg,0)==pdTRUE){
       Serial.println(msg);
     }
 
@@ -58,8 +60,8 @@ void taskA(void *param){
 
       if(commands[0]=="delay"){
         msg = commands[1].toInt();
-        if(xQueueSend(queue2,(void*)&msg,10)!=pdTRUE){
-          Serial.println("Queue2 Full!");
+        if(xQueueSend(queue1,(void*)&msg,10)!=pdTRUE){
+          Serial.println("Queue1 Full!");
         }
       }
     }
@@ -67,11 +69,36 @@ void taskA(void *param){
   }
 }
 
+void taskB(void *param){
+  int t=500, count=0, item;
+  char msg[10];
+  while(1){
+    if(xQueueReceive(queue1, (void*)&item,10)==pdTRUE){
+      t=item;
+    }
+    digitalWrite(led_pin,HIGH);
+    vTaskDelay(t/portTICK_PERIOD_MS);
+    digitalWrite(led_pin,LOW);
+    vTaskDelay(t/portTICK_PERIOD_MS);
+    count++;
+
+    if(count>=100){
+      msg = "Blinked";
+      if(xQueueSend(queue2, msg, 5)!=pdTRUE){
+        Serial.println("Queue2 Full!");
+      }
+    }
+  }
+}
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   Serial.println("------------FREE RTOS Started--------------------");
+
+  pinMode(led_pin,OUTPUT);
+  digitalWrite(led_pin,LOW);
+
 
   queue1 = xQueueCreate(max_queue_len,sizeof(int));
   queue2 = xQueueCreate(max_queue_len,sizeof(char)*10);
