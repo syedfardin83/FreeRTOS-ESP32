@@ -9,10 +9,11 @@ static const uint8_t max_queue_len = 5;
 static QueueHandle_t queue1;
 static QueueHandle_t queue2;
 
-static const uint8_t led_pin = NULL;
+static const uint8_t led_pin = 23;
 
 static const int buff_size = NULL;
 
+String *commands;
 String inputString = "";
 bool stringEnd = false;
 
@@ -38,7 +39,8 @@ String* splitBySpace(String str){
 }
 
 void taskA(void *param){
-  char msg[10];char ch;String *commands;int msg;
+  Serial.println("Task A Started!");
+  char msg[8];char ch;int delay;
   while(1){
     if(xQueueReceive(queue2,msg,0)==pdTRUE){
       Serial.println(msg);
@@ -55,23 +57,25 @@ void taskA(void *param){
     if(stringEnd){
       Serial.println(inputString);
       commands = splitBySpace(inputString);
-      inputSring = "";
+      inputString = "";
       stringEnd = false;
 
       if(commands[0]=="delay"){
-        msg = commands[1].toInt();
-        if(xQueueSend(queue1,(void*)&msg,10)!=pdTRUE){
+        delay = commands[1].toInt();
+        if(xQueueSend(queue1,(void*)&delay,10)!=pdTRUE){
           Serial.println("Queue1 Full!");
         }
       }
     }
+    vTaskDelay(10/portTICK_PERIOD_MS);
 
   }
 }
 
 void taskB(void *param){
+  Serial.println("Task B Started!");
   int t=500, count=0, item;
-  char msg[10];
+  char msg[8];
   while(1){
     if(xQueueReceive(queue1, (void*)&item,10)==pdTRUE){
       t=item;
@@ -82,12 +86,14 @@ void taskB(void *param){
     vTaskDelay(t/portTICK_PERIOD_MS);
     count++;
 
-    if(count>=100){
-      msg = "Blinked";
+    if(count>=5){
+      strcpy(msg,"Blinked");
       if(xQueueSend(queue2, msg, 5)!=pdTRUE){
         Serial.println("Queue2 Full!");
       }
+      count = 0;
     }
+    vTaskDelay(10/portTICK_PERIOD_MS);
   }
 }
 
@@ -102,6 +108,28 @@ void setup() {
 
   queue1 = xQueueCreate(max_queue_len,sizeof(int));
   queue2 = xQueueCreate(max_queue_len,sizeof(char)*10);
+
+  xTaskCreatePinnedToCore(
+    taskA,
+    "Task A",
+    2048,
+    NULL,
+    1,
+    NULL,
+    app_cpu
+  );
+
+  xTaskCreatePinnedToCore(
+    taskB,
+    "Task B",
+    2048,
+    NULL,
+    1,
+    NULL,
+    app_cpu
+  );
+
+  vTaskDelete(NULL);
 }
 
 void loop() {
