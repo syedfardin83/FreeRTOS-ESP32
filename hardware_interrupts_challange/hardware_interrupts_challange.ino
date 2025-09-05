@@ -4,6 +4,8 @@ static const int app_cpu = 0;
 static const int app_cpu = 1;
 #endif
 
+#define adc_pin 34
+
 //  Queues
 static QueueHandle_t arr_q = NULL;
 int arr_qL = 5;
@@ -16,6 +18,8 @@ static uint16_t prescaler = 8;
 static uint64_t timer_max = 1000000;
 static hw_timer_t *my_timer = NULL;
 
+static TimerHandle_t one_shot_timer = NULL;
+
 
 static int isr_buffer[10];int p = 0;
 
@@ -26,8 +30,11 @@ static float avg = 0;
 String inputString = "";
 
 //  ISR
-void IRAM_ATTR timer_interrupt(){
-  int inp = analogRead(adc_pin);
+void IRAM_ATTR timer_interrupt(TimerHandle_t timer){
+  // Serial.println("Interrupted!!!");
+  // int inp = analogRead(adc_pin);
+  // int inp = 13;
+  int inp = random(1,101);
   isr_buffer[p] = inp;
 
   BaseType_t task_woken = pdFALSE;
@@ -86,12 +93,12 @@ void taskB(void* param){
   }
 }
 
-#define adc_pin 34
 
 void setup() {
   pinMode(adc_pin,INPUT);
   Serial.begin(9600);
   Serial.println("--------Serial Started------------");
+  randomSeed(analogRead(A0));
 
   arr_q = xQueueCreate(arr_qL, sizeof(int)*10);
   avg_m = xSemaphoreCreateMutex();
@@ -116,10 +123,18 @@ void setup() {
     app_cpu
   );
 
-  my_timer = timerBegin(0, prescaler, true);
-  timerAttachInterrupt(my_timer, &timer_interrupt, true);
-  timerAlarmWrite(my_timer, timer_max, true);
-  timerAlarmEnable(my_timer);
+  // my_timer = timerBegin(10); // 10 Hz frequency
+  // timerAttachInterrupt(my_timer, &timer_interrupt);
+  // timerAlarm(my_timer, timer_max, true, 0); // value in microseconds, auto-reload = true, reloadCount = 0
+  // timerStart(my_timer);
+    one_shot_timer = xTimerCreate(
+    "One-shot timer",
+    100/portTICK_PERIOD_MS,
+    pdTRUE,
+    (void *)0,
+    timer_interrupt
+  );
+    xTimerStart(one_shot_timer, portMAX_DELAY);
 
   vTaskDelete(NULL);
 }
