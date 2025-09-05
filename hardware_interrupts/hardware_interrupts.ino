@@ -5,7 +5,7 @@ static const int app_cpu = 1;
 #endif
 
 //Timer settings
-static uint16_t prescaler = 80;
+static uint16_t prescaler = 8;
 static unint64_t timer_max = 1000000;
 
 //Timer handler
@@ -35,6 +35,8 @@ void printTask(void* params){
     portENTER_CRITICAL(&my_spinlock);
     isr_counter--;
     portEXIT_CRITICAL(&my_spinlock);
+
+    vTaskDelay(2000/portTICK_PERIOD_MS);
   }
 }
 
