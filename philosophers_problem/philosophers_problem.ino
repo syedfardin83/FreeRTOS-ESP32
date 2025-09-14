@@ -12,6 +12,8 @@ static SemaphoreHandle_t bin_sem;
 static SemaphoreHandle_t done_sem;
 static SemaphoreHandle_t chopsticks[NUM_TASKS];
 
+static SemaphoreHandle_t master_m;
+
 //  The heirarchial solution
 void eat_h(void *param){
 
@@ -69,6 +71,68 @@ void eat_h(void *param){
   vTaskDelete(NULL);
 }
 
+void eat_a(void* param){
+
+  int num, stick_l, stick_r;
+  num = *(int*)param;
+  xSemaphoreGive(bin_sem);
+
+  if(num==4){
+    stick_r = 0;
+    stick_l = 4;
+  }else{
+    stick_r = num;
+    stick_l = num+1;
+  }
+
+  //  Take master mutex
+  xSemaphoreTake(master_m, portMAX_DELAY);
+
+  //  Take Right chopstick
+  xSemaphoreTake(chopsticks[stick_r],portMAX_DELAY);
+  Serial.print("Philosopher ");
+  Serial.print(num);
+  Serial.print(" took chopstick ");
+  Serial.println(stick_r);
+
+  //  Wait for a while
+  vTaskDelay(1/portTICK_PERIOD_MS);
+
+  //  Take left chopstick
+  xSemaphoreTake(chopsticks[stick_l],portMAX_DELAY);
+  Serial.print("Philosopher ");
+  Serial.print(num);
+  Serial.print(" took chopstick ");
+  Serial.println(stick_l);
+
+  //  Do some task
+  Serial.print("Philosopher ");
+  Serial.print(num);
+  Serial.println(" is eating...");
+
+  //  Give Right Chopstick
+  xSemaphoreGive(chopsticks[stick_r]);
+
+  //  Wait for a while
+  vTaskDelay(1/portTICK_PERIOD_MS);
+
+  //  Give Left Chopstick
+  xSemaphoreGive(chopsticks[stick_l]);
+
+  //  Give master mutex
+  xSemaphoreGive(master_m);
+
+  //  Give done_sem
+  xSemaphoreGive(done_sem);
+  Serial.print("Philosopher ");
+  Serial.print(num);
+  Serial.println(" is done!");
+
+  //  Delete self
+  vTaskDelete(NULL);
+
+}
+
 void setup() {
   Serial.begin(9600);
   Serial.println("\n-------Free RTOS Philosopher problem---------");
@@ -77,14 +141,15 @@ void setup() {
   //  Initialize all semaphores
   bin_sem = xSemaphoreCreateBinary();
   done_sem = xSemaphoreCreateCounting(NUM_TASKS,0);
+  master_m = xSemaphoreCreateMutex();
   for(int i=0;i<NUM_TASKS;i++){
     chopsticks[i] = xSemaphoreCreateMutex();
   }
 
   for(int i=0;i<NUM_TASKS;i++){
     xTaskCreatePinnedToCore(
-      eat_h,
-      "Heirarchial eating",
+      eat_a,
+      "Eating",
       STACK_SIZE,
       (void*)&i,
       1,
